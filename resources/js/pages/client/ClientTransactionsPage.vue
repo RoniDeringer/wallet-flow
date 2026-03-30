@@ -7,13 +7,29 @@
           <p class="mt-2 text-sm text-white/70">Todas as suas transações (Ledger, BRL).</p>
         </div>
 
-        <button
-          type="button"
-          class="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#e9c15e] to-[#c89a2e] px-5 py-3 text-sm font-semibold text-[#032952] shadow-lg shadow-[#e9c15e]/20 ring-1 ring-white/10 hover:brightness-105"
-          @click="openTransferModal()"
-        >
-          Realizar transferência
-        </button>
+        <div class="flex flex-wrap items-center justify-end gap-3">
+          <a
+            class="inline-flex items-center justify-center gap-2 rounded-xl bg-white/10 px-4 py-3 text-sm font-semibold text-white ring-1 ring-white/15 hover:bg-white/15"
+            href="http://127.0.0.1:15672"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Abrir RabbitMQ"
+          >
+            RabbitMQ
+            <svg class="size-4 text-[#e9c15e]" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 3h7v7m0-7L10 14" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 14v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6" />
+            </svg>
+          </a>
+
+          <button
+            type="button"
+            class="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#e9c15e] to-[#c89a2e] px-5 py-3 text-sm font-semibold text-[#032952] shadow-lg shadow-[#e9c15e]/20 ring-1 ring-white/10 hover:brightness-105"
+            @click="openTransferModal()"
+          >
+            Realizar transferência
+          </button>
+        </div>
       </div>
 
       <p v-if="error" class="mt-5 rounded-xl bg-rose-500/10 px-4 py-3 text-xs text-rose-100 ring-1 ring-rose-500/20">
@@ -47,7 +63,7 @@
       </div>
     </div>
 
-    <!-- Modal Transferência (UI apenas) -->
+    <!-- Modal Transferência -->
     <div v-if="modalOpen" class="fixed inset-0 z-50">
       <div class="absolute inset-0 bg-black/70" @click="closeTransferModal()" />
 
@@ -107,7 +123,7 @@
               :disabled="saving"
               @click="confirmTransfer()"
             >
-              Transferir
+              {{ saving ? 'Transferindo...' : 'Transferir' }}
             </button>
           </div>
         </div>
@@ -194,13 +210,44 @@ function validateTransfer() {
   return !recipientError.value && !amountError.value
 }
 
-function confirmTransfer() {
+async function confirmTransfer() {
   notice.value = ''
+  error.value = ''
+
   if (!validateTransfer()) return
 
-  notice.value = 'UI pronta. A lógica de transferência será implementada em seguida (Ledger + RabbitMQ).'
+  saving.value = true
+
+  try {
+    await axios.post(
+      '/api/me/transfers',
+      {
+        recipient_email: recipientEmail.value,
+        amount: amount.value,
+      },
+      {
+        headers: {
+          'X-User-Id': props.user.id,
+        },
+      }
+    )
+
+    notice.value = 'Transferência criada (pending) e enviada para a fila.'
+    closeTransferModal()
+    await fetchTransactions()
+  } catch (e) {
+    if (e?.response?.status === 422) {
+      const errs = e?.response?.data?.errors || {}
+      if (errs.recipient_email?.[0]) recipientError.value = errs.recipient_email[0]
+      if (errs.amount?.[0]) amountError.value = errs.amount[0]
+      if (!recipientError.value && !amountError.value) error.value = e?.response?.data?.message || 'Falha ao transferir.'
+    } else {
+      error.value = e?.response?.data?.message || 'Erro ao transferir.'
+    }
+  } finally {
+    saving.value = false
+  }
 }
 
 onMounted(fetchTransactions)
 </script>
-

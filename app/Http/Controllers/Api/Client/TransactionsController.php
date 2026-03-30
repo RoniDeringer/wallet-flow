@@ -41,15 +41,8 @@ class TransactionsController extends Controller
             })
             ->orderByDesc('created_at')
             ->limit(50)
-            ->select([
-                'id',
-                'uuid',
-                'type',
-                'status',
-                'currency',
-                'created_at',
-                DB::raw("CASE WHEN to_account_id = {$accountId} THEN amount ELSE -amount END as amount_signed"),
-            ])
+            ->select(['id', 'uuid', 'type', 'status', 'currency', 'created_at'])
+            ->selectRaw('CASE WHEN to_account_id = ? THEN amount ELSE -amount END as amount_signed', [$accountId])
             ->get();
 
         return response()->json([

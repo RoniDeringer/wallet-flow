@@ -37,7 +37,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import AppFooter from './components/AppFooter.vue'
 import AppSidebar from './components/AppSidebar.vue'
 import LoginPage from './pages/LoginPage.vue'
@@ -48,8 +48,17 @@ import ClientDepositsPage from './pages/client/ClientDepositsPage.vue'
 import ClientTransactionsPage from './pages/client/ClientTransactionsPage.vue'
 import ClientWalletPage from './pages/client/ClientWalletPage.vue'
 
-const user = ref(null)
-const activeKey = ref('wallet')
+function loadSession() {
+  try {
+    return JSON.parse(localStorage.getItem('wf_session') || 'null')
+  } catch {
+    return null
+  }
+}
+
+const session = loadSession()
+const user = ref(session?.user ?? null)
+const activeKey = ref(session?.activeKey ?? 'wallet')
 
 function onLoggedIn(payload) {
   user.value = payload
@@ -60,6 +69,25 @@ function logout() {
   user.value = null
   activeKey.value = 'wallet'
 }
+
+watch(
+  () => ({ user: user.value, activeKey: activeKey.value }),
+  (next) => {
+    if (!next.user) {
+      localStorage.removeItem('wf_session')
+      return
+    }
+
+    localStorage.setItem(
+      'wf_session',
+      JSON.stringify({
+        user: next.user,
+        activeKey: next.activeKey,
+      })
+    )
+  },
+  { deep: true }
+)
 
 const menuItems = computed(() => {
   if (user.value?.role === 'admin') {

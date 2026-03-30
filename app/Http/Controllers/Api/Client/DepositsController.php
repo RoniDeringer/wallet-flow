@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Client;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessDepositTransaction;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -79,76 +80,53 @@ class DepositsController extends Controller
         }
 
         $tx = DB::transaction(function () use ($user, $amountCents) {
-            $userAccountId = DB::table('accounts')->updateOrInsert(
+            DB::table('accounts')->updateOrInsert(
                 ['type' => 'user', 'user_id' => $user->id, 'currency' => 'BRL'],
                 ['name' => $user->name.' (BRL)', 'key' => null, 'updated_at' => now(), 'created_at' => now()]
-            )
-                ? DB::table('accounts')
-                    ->where('type', '=', 'user')
-                    ->where('user_id', '=', $user->id)
-                    ->where('currency', '=', 'BRL')
-                    ->value('id')
-                : null;
+            );
 
-            $platformAccountId = DB::table('accounts')->updateOrInsert(
+            DB::table('accounts')->updateOrInsert(
                 ['type' => 'system', 'key' => 'platform', 'currency' => 'BRL'],
                 ['name' => 'Plataforma (BRL)', 'user_id' => null, 'updated_at' => now(), 'created_at' => now()]
-            )
-                ? DB::table('accounts')
-                    ->where('type', '=', 'system')
-                    ->where('key', '=', 'platform')
-                    ->where('currency', '=', 'BRL')
-                    ->value('id')
-                : null;
+            );
+
+            $userAccountId = DB::table('accounts')
+                ->where('type', '=', 'user')
+                ->where('user_id', '=', $user->id)
+                ->where('currency', '=', 'BRL')
+                ->value('id');
+
+            $platformAccountId = DB::table('accounts')
+                ->where('type', '=', 'system')
+                ->where('key', '=', 'platform')
+                ->where('currency', '=', 'BRL')
+                ->value('id');
 
             if (! $userAccountId || ! $platformAccountId) {
                 throw ValidationException::withMessages([
-                    'amount' => ['Não foi possível preparar as contas para o depósito.'],
+                    'amount' => ['Nao foi possivel preparar as contas para o deposito.'],
                 ]);
             }
 
-            $uuid = (string) Str::uuid();
-
             $transactionId = DB::table('ledger_transactions')->insertGetId([
-                'uuid' => $uuid,
+                'uuid' => (string) Str::uuid(),
                 'type' => 'deposit',
-                'status' => 'posted',
+                'status' => 'pending',
                 'amount' => $amountCents,
                 'currency' => 'BRL',
                 'requested_by_user_id' => $user->id,
                 'from_account_id' => $platformAccountId,
                 'to_account_id' => $userAccountId,
-                'description' => 'Depósito',
+                'description' => 'Deposito',
                 'meta' => json_encode(['source' => 'manual']),
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
 
-            DB::table('ledger_entries')->insert([
-                [
-                    'ledger_transaction_id' => $transactionId,
-                    'account_id' => $userAccountId,
-                    'amount' => $amountCents,
-                    'currency' => 'BRL',
-                    'balance_after' => null,
-                    'description' => 'Depósito',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ],
-                [
-                    'ledger_transaction_id' => $transactionId,
-                    'account_id' => $platformAccountId,
-                    'amount' => -$amountCents,
-                    'currency' => 'BRL',
-                    'balance_after' => null,
-                    'description' => 'Depósito (contrapartida)',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ],
-            ]);
-
             return DB::table('ledger_transactions')->where('id', '=', $transactionId)->first();
         });
+
+        ProcessDepositTransaction::dispatch($tx->id)->afterCommit();
 
         return response()->json([
             'ok' => true,
@@ -164,7 +142,7 @@ class DepositsController extends Controller
 
         if (! preg_match('/^\d+(\.\d{1,2})?$/', $value)) {
             throw ValidationException::withMessages([
-                'amount' => ['Informe um valor válido (ex: 10.00).'],
+                'amount' => ['Informe um valor valido (ex: 10.00).'],
             ]);
         }
 
@@ -174,4 +152,3 @@ class DepositsController extends Controller
         return ((int) $whole * 100) + (int) substr($fraction, 0, 2);
     }
 }
-

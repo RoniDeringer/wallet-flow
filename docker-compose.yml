@@ -17,5 +17,49 @@ services:
       timeout: 5s
       retries: 20
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: walletflow-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_VHOST: /
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker/Dockerfile
+    container_name: walletflow-worker
+    working_dir: /app
+    volumes:
+      - ./:/app
+    depends_on:
+      - mysql
+      - rabbitmq
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_TIMEZONE: America/Sao_Paulo
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: walletflow
+      DB_USERNAME: walletflow
+      DB_PASSWORD: walletflow
+      QUEUE_CONNECTION: rabbitmq
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      RABBITMQ_VHOST: /
+      RABBITMQ_QUEUE: walletflow.transactions
+    command: ["php", "artisan", "rabbitmq:consume", "rabbitmq", "--queue=walletflow.transactions", "--sleep=1", "--tries=3", "--timeout=90", "--name=walletflow-worker"]
+
 volumes:
   mysql_data:
+  rabbitmq_data:
