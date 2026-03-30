@@ -1,6 +1,6 @@
 import './bootstrap'
 
 import { createApp } from 'vue'
-import Welcome from './components/Welcome.vue'
+import App from './App.vue'
 
-createApp(Welcome).mount('#app')
+createApp(App).mount('#app')
