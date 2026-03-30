@@ -53,9 +53,7 @@ async function fetchBalance() {
   error.value = ''
 
   try {
-    const { data } = await axios.get('/api/me/wallet', {
-      headers: { 'X-User-Id': props.user.id },
-    })
+    const { data } = await axios.get('/api/me/wallet')
     balanceCents.value = Number(data?.data?.balance_cents ?? 0)
   } catch (e) {
     error.value = e?.response?.data?.message || 'Não foi possível carregar seu saldo.'
@@ -64,4 +62,3 @@ async function fetchBalance() {
 
 onMounted(fetchBalance)
 </script>
-

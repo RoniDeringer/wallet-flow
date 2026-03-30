@@ -14,7 +14,7 @@
 
         <button
           type="button"
-          class="inline-flex items-center justify-center rounded-xl bg-white/10 px-5 py-3 text-sm font-semibold text-white ring-1 ring-white/15 hover:bg-white/15"
+          class="inline-flex items-center justify-center rounded-xl bg-white/10 px-5 py-3 text-sm font-semibold text-white ring-1 ring-white/15 hover:bg-white/15 cursor-pointer"
           @click="$emit('logout')"
         >
           Sair
@@ -52,4 +52,3 @@ defineProps({
 
 defineEmits(['logout'])
 </script>
-

@@ -17,6 +17,7 @@ class UsersSeeder extends Seeder
             [
                 'name' => 'Administrador',
                 'email' => 'admin@admin.com',
+                'username' => 'admin',
                 'role' => 'admin',
                 'password' => '12345',
             ]
@@ -27,6 +28,7 @@ class UsersSeeder extends Seeder
             [
                 'name' => 'Ana',
                 'email' => 'ana@gmail.com',
+                'username' => 'ana',
                 'role' => 'client',
                 'password' => '12345',
             ]
@@ -37,10 +39,10 @@ class UsersSeeder extends Seeder
             [
                 'name' => 'Daniel',
                 'email' => 'daniel@daniel.com',
+                'username' => 'daniel',
                 'role' => 'client',
                 'password' => '12345',
             ]
         );
     }
 }
-

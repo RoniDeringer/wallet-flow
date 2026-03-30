@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api\Client;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
@@ -12,16 +11,10 @@ class WalletController extends Controller
 {
     public function show(Request $request)
     {
-        $userId = $request->header('X-User-Id');
+        $user = $request->user();
 
-        if (! $userId) {
-            return response()->json(['message' => 'Missing X-User-Id header.'], Response::HTTP_UNAUTHORIZED);
-        }
-
-        $user = User::query()->find($userId);
-
-        if (! $user) {
-            return response()->json(['message' => 'Unauthorized.'], Response::HTTP_FORBIDDEN);
+        if (! $user || $user->role !== 'client') {
+            return response()->json(['message' => 'Forbidden.'], Response::HTTP_FORBIDDEN);
         }
 
         $accountId = DB::table('accounts')

@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\Client;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\ProcessDepositTransaction;
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -15,16 +14,10 @@ class DepositsController extends Controller
 {
     public function index(Request $request)
     {
-        $userId = $request->header('X-User-Id');
+        $user = $request->user();
 
-        if (! $userId) {
-            return response()->json(['message' => 'Missing X-User-Id header.'], Response::HTTP_UNAUTHORIZED);
-        }
-
-        $user = User::query()->find($userId);
-
-        if (! $user) {
-            return response()->json(['message' => 'Unauthorized.'], Response::HTTP_FORBIDDEN);
+        if (! $user || $user->role !== 'client') {
+            return response()->json(['message' => 'Forbidden.'], Response::HTTP_FORBIDDEN);
         }
 
         $accountId = DB::table('accounts')
@@ -55,16 +48,10 @@ class DepositsController extends Controller
 
     public function store(Request $request)
     {
-        $userId = $request->header('X-User-Id');
+        $user = $request->user();
 
-        if (! $userId) {
-            return response()->json(['message' => 'Missing X-User-Id header.'], Response::HTTP_UNAUTHORIZED);
-        }
-
-        $user = User::query()->find($userId);
-
-        if (! $user) {
-            return response()->json(['message' => 'Unauthorized.'], Response::HTTP_FORBIDDEN);
+        if (! $user || $user->role !== 'client') {
+            return response()->json(['message' => 'Forbidden.'], Response::HTTP_FORBIDDEN);
         }
 
         $validated = $request->validate([
@@ -104,7 +91,7 @@ class DepositsController extends Controller
 
             if (! $userAccountId || ! $platformAccountId) {
                 throw ValidationException::withMessages([
-                    'amount' => ['Nao foi possivel preparar as contas para o deposito.'],
+                    'amount' => ['Não foi possível preparar as contas para o depósito.'],
                 ]);
             }
 
@@ -117,7 +104,7 @@ class DepositsController extends Controller
                 'requested_by_user_id' => $user->id,
                 'from_account_id' => $platformAccountId,
                 'to_account_id' => $userAccountId,
-                'description' => 'Deposito',
+                'description' => 'Depósito',
                 'meta' => json_encode(['source' => 'manual']),
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -126,7 +113,9 @@ class DepositsController extends Controller
             return DB::table('ledger_transactions')->where('id', '=', $transactionId)->first();
         });
 
-        ProcessDepositTransaction::dispatch($tx->id)->afterCommit();
+        ProcessDepositTransaction::dispatch($tx->id)
+            ->onQueue(config('queue.connections.rabbitmq.queue', 'default'))
+            ->afterCommit();
 
         return response()->json([
             'ok' => true,
@@ -142,7 +131,7 @@ class DepositsController extends Controller
 
         if (! preg_match('/^\d+(\.\d{1,2})?$/', $value)) {
             throw ValidationException::withMessages([
-                'amount' => ['Informe um valor valido (ex: 10.00).'],
+                'amount' => ['Informe um valor válido (ex: 10.00).'],
             ]);
         }
 

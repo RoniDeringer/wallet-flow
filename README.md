@@ -64,3 +64,48 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+---
+
+# Wallet Flow (desafio - carteira financeira)
+
+## Visao tecnica
+
+- Backend: Laravel 12, PHP 8.2, SQL (MySQL via Docker para o worker).
+- Frontend: Vue 3 + Vite + Tailwind.
+- Fila: RabbitMQ (driver `vladimir-yuldashev/laravel-queue-rabbitmq`).
+- Padrao de dados: Ledger (`ledger_transactions` + `ledger_entries`) para auditoria.
+- Operacoes: `deposit`, `transfer`, `reversal`.
+
+## Execucao tecnica (dev)
+
+- RabbitMQ UI: `http://127.0.0.1:15672` (default: `guest` / `guest`).
+- Fila configurada: `walletflow.transactions` (variavel `RABBITMQ_QUEUE`).
+- Worker:
+  - Docker: `docker compose up -d --build rabbitmq mysql worker`
+  - Local: `php artisan rabbitmq:consume rabbitmq --queue=walletflow.transactions --name=local-worker`
+- Como verificar se ha worker consumindo:
+  - RabbitMQ UI -> `Queues and Streams` -> `walletflow.transactions` -> `Consumers` (precisa ser > 0)
+  - `docker compose logs -f worker` (quando usando worker no Docker)
+
+## Endpoints (modo dev)
+
+Observacao: atualmente usamos o header `X-User-Id` como autenticacao temporaria. Em producao isso deve ser substituido por Sanctum.
+
+- `POST /api/login` -> valida email/senha e retorna o usuario.
+- `GET /api/me/overview` -> overview do Ledger (saldo/totalizadores).
+- `GET /api/me/wallet` -> saldo atual via Ledger.
+- `GET /api/me/deposits` / `POST /api/me/deposits` -> lista/cria deposito (cria `pending` e enfileira job).
+- `GET /api/me/transactions` -> lista transacoes do usuario.
+- `POST /api/me/transfers` -> cria transferencia por email (cria `pending` e enfileira job).
+- `POST /api/me/transactions/{transactionId}/reversal` -> solicita rollback (cria `reversal` e enfileira job).
+
+## Regras de negocio
+
+### Rollback (reversal)
+
+- Rollback nao "desfaz" lancamentos: ele cria uma nova transacao do tipo `reversal` apontando para `reversal_of_id` (auditoria).
+- So permite rollback de transacoes `posted`.
+- Nao permite rollback se existir alguma transferencia `pending` envolvendo o usuario (evita inconsistencias de saldo).
+- Nao permite rollback se, ao reverter, o saldo do usuario ficaria negativo.
+  - Exemplo: usuario recebeu um deposito, transferiu todo o valor e tenta reverter o deposito -> bloqueado.

@@ -15,16 +15,10 @@ class TransfersController extends Controller
 {
     public function store(Request $request)
     {
-        $userId = $request->header('X-User-Id');
-
-        if (! $userId) {
-            return response()->json(['message' => 'Missing X-User-Id header.'], Response::HTTP_UNAUTHORIZED);
-        }
-
-        $sender = User::query()->find($userId);
+        $sender = $request->user();
 
         if (! $sender) {
-            return response()->json(['message' => 'Unauthorized.'], Response::HTTP_FORBIDDEN);
+            return response()->json(['message' => 'Unauthenticated.'], Response::HTTP_UNAUTHORIZED);
         }
 
         if ($sender->role !== 'client') {
@@ -40,13 +34,13 @@ class TransfersController extends Controller
 
         if (! $recipient || $recipient->role !== 'client') {
             throw ValidationException::withMessages([
-                'recipient_email' => ['Destinatario nao encontrado.'],
+                'recipient_email' => ['Destinatário não encontrado.'],
             ]);
         }
 
         if ($recipient->id === $sender->id) {
             throw ValidationException::withMessages([
-                'recipient_email' => ['Voce nao pode transferir para si mesmo.'],
+                'recipient_email' => ['Você não pode transferir para si mesmo.'],
             ]);
         }
 
@@ -117,7 +111,7 @@ class TransfersController extends Controller
 
             if (! $fromAccountId || ! $toAccountId) {
                 throw ValidationException::withMessages([
-                    'amount' => ['Nao foi possivel preparar as contas para a transferencia.'],
+                    'amount' => ['Não foi possível preparar as contas para a transferência.'],
                 ]);
             }
 
@@ -131,7 +125,7 @@ class TransfersController extends Controller
                 'from_account_id' => $fromAccountId,
                 'to_account_id' => $toAccountId,
                 'idempotency_key' => $idempotencyKey,
-                'description' => 'Transferencia',
+                'description' => 'Transferência',
                 'meta' => json_encode(['recipient_user_id' => $recipient->id]),
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -140,7 +134,9 @@ class TransfersController extends Controller
             return DB::table('ledger_transactions')->where('id', '=', $transactionId)->first();
         });
 
-        ProcessTransferTransaction::dispatch($tx->id)->afterCommit();
+        ProcessTransferTransaction::dispatch($tx->id)
+            ->onQueue(config('queue.connections.rabbitmq.queue', 'default'))
+            ->afterCommit();
 
         return response()->json([
             'ok' => true,
@@ -156,7 +152,7 @@ class TransfersController extends Controller
 
         if (! preg_match('/^\d+(\.\d{1,2})?$/', $value)) {
             throw ValidationException::withMessages([
-                'amount' => ['Informe um valor valido (ex: 10.00).'],
+                'amount' => ['Informe um valor válido (ex: 10.00).'],
             ]);
         }
 

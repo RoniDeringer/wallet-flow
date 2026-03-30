@@ -1,5 +1,5 @@
 <template>
-  <div class="flex min-h-screen flex-col bg-gradient-to-br from-[#032952] via-[#021e3d] to-[#000814] text-white">
+  <div class="flex h-screen flex-col bg-gradient-to-br from-[#032952] via-[#021e3d] to-[#000814] text-white">
     <header class="mx-auto w-full max-w-6xl px-6 pt-10">
       <div class="flex items-center justify-between gap-4">
         <div class="flex items-center gap-3">
@@ -22,11 +22,11 @@
     </header>
 
     <LoginPage v-if="!user" @logged-in="onLoggedIn" />
-    <div v-else class="flex w-full flex-1 flex-col py-8 sm:flex-row sm:min-h-0">
+    <div v-else class="flex w-full flex-1 flex-col overflow-hidden py-8 sm:flex-row sm:min-h-0">
       <AppSidebar :user="user" :items="menuItems" :active-key="activeKey" @select="activeKey = $event" @logout="logout" />
 
-      <main class="flex min-h-[60vh] flex-1 flex-col sm:min-h-0">
-        <div class="w-full flex-1 sm:px-6">
+      <main class="flex min-h-[60vh] flex-1 flex-col overflow-hidden sm:min-h-0">
+        <div class="w-full flex-1 overflow-y-auto sm:px-6">
           <component :is="activeComponent" :user="user" class="flex-1" />
         </div>
       </main>
@@ -37,6 +37,7 @@
 </template>
 
 <script setup>
+import axios from 'axios'
 import { computed, ref, watch } from 'vue'
 import AppFooter from './components/AppFooter.vue'
 import AppSidebar from './components/AppSidebar.vue'
@@ -58,20 +59,30 @@ function loadSession() {
 
 const session = loadSession()
 const user = ref(session?.user ?? null)
+const token = ref(session?.token ?? '')
 const activeKey = ref(session?.activeKey ?? 'wallet')
 
 function onLoggedIn(payload) {
-  user.value = payload
-  activeKey.value = payload?.role === 'admin' ? 'clients' : 'wallet'
+  user.value = payload?.user ?? null
+  token.value = payload?.token ?? ''
+  activeKey.value = user.value?.role === 'admin' ? 'clients' : 'wallet'
 }
 
-function logout() {
+async function logout() {
+  try {
+    await axios.post('/api/logout')
+  } catch {
+    // ignore
+  }
+
+  delete axios.defaults.headers.common['Authorization']
   user.value = null
+  token.value = ''
   activeKey.value = 'wallet'
 }
 
 watch(
-  () => ({ user: user.value, activeKey: activeKey.value }),
+  () => ({ user: user.value, token: token.value, activeKey: activeKey.value }),
   (next) => {
     if (!next.user) {
       localStorage.removeItem('wf_session')
@@ -82,6 +93,7 @@ watch(
       'wf_session',
       JSON.stringify({
         user: next.user,
+        token: next.token,
         activeKey: next.activeKey,
       })
     )
@@ -92,16 +104,16 @@ watch(
 const menuItems = computed(() => {
   if (user.value?.role === 'admin') {
     return [
-      { key: 'clients', label: 'Clientes', badge: 'admin' },
-      { key: 'transactions', label: 'Transações', badge: 'ledger' },
-      { key: 'deposits', label: 'Depósitos', badge: 'ops' },
+      { key: 'clients', label: 'Clientes' },
+      { key: 'transactions', label: 'Transações' },
+      { key: 'deposits', label: 'Depósitos' },
     ]
   }
 
   return [
-    { key: 'wallet', label: 'Minha carteira', badge: 'saldo' },
-    { key: 'transactions', label: 'Transações', badge: 'minhas' },
-    { key: 'deposits', label: 'Depósitos', badge: 'novo' },
+    { key: 'wallet', label: 'Minha carteira' },
+    { key: 'transactions', label: 'Transações' },
+    { key: 'deposits', label: 'Depósitos' },
   ]
 })
 
