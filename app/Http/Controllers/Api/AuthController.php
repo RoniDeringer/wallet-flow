@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\RegisterRequest;
+use App\Models\Account;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,12 +16,9 @@ use Throwable;
 
 class AuthController extends Controller
 {
-    public function login(Request $request)
+    public function login(LoginRequest $request)
     {
-        $validated = $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required', 'string'],
-        ]);
+        $validated = $request->validated();
 
         $user = User::query()->where('email', $validated['email'])->first();
 
@@ -43,16 +43,9 @@ class AuthController extends Controller
         ]);
     }
 
-    public function register(Request $request)
+    public function register(RegisterRequest $request)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-            'username' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9_]+$/', 'unique:users,username'],
-            'password' => ['required', 'string', 'min:5'],
-        ], [
-            'username.regex' => 'O username deve conter apenas letras, números e underscore (_).',
-        ]);
+        $validated = $request->validated();
 
         try {
             $user = DB::transaction(function () use ($validated) {
@@ -64,14 +57,12 @@ class AuthController extends Controller
                     'password' => $validated['password'],
                 ]);
 
-                DB::table('accounts')->insert([
+                Account::query()->create([
                     'type' => 'user',
                     'user_id' => $created->id,
                     'key' => null,
                     'name' => $created->name,
                     'currency' => 'BRL',
-                    'created_at' => now(),
-                    'updated_at' => now(),
                 ]);
 
                 return $created;
@@ -100,7 +91,7 @@ class AuthController extends Controller
         $user = $request->user();
 
         if (! $user) {
-            return response()->json(['message' => 'Unauthenticated.'], Response::HTTP_UNAUTHORIZED);
+            return response()->json(['message' => 'Não autenticado.'], Response::HTTP_UNAUTHORIZED);
         }
 
         $user->currentAccessToken()?->delete();

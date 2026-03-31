@@ -3,8 +3,11 @@
 namespace App\Http\Controllers\Api\Client;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Client\StoreReversalRequest;
 use App\Jobs\ProcessReversalTransaction;
-use Illuminate\Http\Request;
+use App\Models\Account;
+use App\Models\LedgerEntry;
+use App\Models\LedgerTransaction;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -12,15 +15,15 @@ use Symfony\Component\HttpFoundation\Response;
 
 class ReversalsController extends Controller
 {
-    public function store(Request $request, int $transactionId)
+    public function store(StoreReversalRequest $request, int $transactionId)
     {
         $user = $request->user();
 
         if (! $user || $user->role !== 'client') {
-            return response()->json(['message' => 'Forbidden.'], Response::HTTP_FORBIDDEN);
+            return response()->json(['message' => 'Acesso negado.'], Response::HTTP_FORBIDDEN);
         }
 
-        $accountId = DB::table('accounts')
+        $accountId = Account::query()
             ->where('type', '=', 'user')
             ->where('user_id', '=', $user->id)
             ->where('currency', '=', 'BRL')
@@ -32,7 +35,8 @@ class ReversalsController extends Controller
             ]);
         }
 
-        $tx = DB::table('ledger_transactions')->where('id', '=', $transactionId)->first();
+        /** @var LedgerTransaction|null $tx */
+        $tx = LedgerTransaction::query()->where('id', '=', $transactionId)->first();
 
         if (! $tx) {
             throw ValidationException::withMessages([
@@ -55,10 +59,10 @@ class ReversalsController extends Controller
         $belongsToUser = ((int) $tx->from_account_id === (int) $accountId) || ((int) $tx->to_account_id === (int) $accountId);
 
         if (! $belongsToUser) {
-            return response()->json(['message' => 'Forbidden.'], Response::HTTP_FORBIDDEN);
+            return response()->json(['message' => 'Acesso negado.'], Response::HTTP_FORBIDDEN);
         }
 
-        $alreadyReversed = DB::table('ledger_transactions')
+        $alreadyReversed = LedgerTransaction::query()
             ->where('type', '=', 'reversal')
             ->where('reversal_of_id', '=', $tx->id)
             ->exists();
@@ -69,7 +73,7 @@ class ReversalsController extends Controller
             ]);
         }
 
-        $hasPendingTransfer = DB::table('ledger_transactions')
+        $hasPendingTransfer = LedgerTransaction::query()
             ->where('type', '=', 'transfer')
             ->where('status', '=', 'pending')
             ->where(function ($q) use ($accountId) {
@@ -84,12 +88,12 @@ class ReversalsController extends Controller
             ]);
         }
 
-        $currentBalance = (int) DB::table('ledger_entries')
+        $currentBalance = (int) LedgerEntry::query()
             ->where('account_id', '=', $accountId)
             ->where('currency', '=', $tx->currency)
             ->sum('amount');
 
-        $originalDeltaForUser = (int) DB::table('ledger_entries')
+        $originalDeltaForUser = (int) LedgerEntry::query()
             ->where('ledger_transaction_id', '=', $tx->id)
             ->where('account_id', '=', $accountId)
             ->where('currency', '=', $tx->currency)
@@ -104,7 +108,7 @@ class ReversalsController extends Controller
         }
 
         $reversalTx = DB::transaction(function () use ($user, $tx) {
-            $reversalId = DB::table('ledger_transactions')->insertGetId([
+            return LedgerTransaction::query()->create([
                 'uuid' => (string) Str::uuid(),
                 'type' => 'reversal',
                 'status' => 'pending',
@@ -115,12 +119,8 @@ class ReversalsController extends Controller
                 'to_account_id' => $tx->from_account_id,
                 'reversal_of_id' => $tx->id,
                 'description' => 'Reversão',
-                'meta' => json_encode(['reversal_of_uuid' => $tx->uuid]),
-                'created_at' => now(),
-                'updated_at' => now(),
+                'meta' => ['reversal_of_uuid' => $tx->uuid],
             ]);
-
-            return DB::table('ledger_transactions')->where('id', '=', $reversalId)->first();
         });
 
         ProcessReversalTransaction::dispatch($reversalTx->id)

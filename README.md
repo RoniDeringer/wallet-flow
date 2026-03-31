@@ -113,11 +113,6 @@ npm run dev
 php artisan serve
 ```
 
-### Monitorar worker / fila
-
-- RabbitMQ UI → `Queues and Streams` → `walletflow.transactions` → `Consumers` (deve ser > 0)
-- Logs do worker: `docker compose logs -f worker`
-
 ### Rodar worker local (sem Docker)
 
 ```bash
@@ -125,13 +120,6 @@ php artisan rabbitmq:consume rabbitmq --queue=walletflow.transactions --sleep=1 
 ```
 
 ## 🧪 Testes
-
-### 🧩 Conceito (bem simples)
-
-- **Teste unitário**: testa uma parte pequena do sistema “sozinha” (como uma classe), para garantir que ela faz o que deve fazer.
-  - Exemplo no projeto: testar um **Job** que “posta” uma transação no ledger e confere se ele gerou os 2 lançamentos (double-entry).
-- **Teste de integração**: testa “várias peças juntas” (rota → controller → banco → fila), simulando o uso real da API.
-  - Exemplo no projeto: chamar `POST /api/me/transfers` e validar resposta/validações e se o job foi enfileirado.
 
 ### ✅ Como rodar
 
@@ -162,6 +150,7 @@ php artisan test --filter=TransferRequestTest
 ### 📌 O que está sendo testado (resumo)
 
 **Unitários**
+
 1. Depósito posta double-entry e marca `posted`: `tests/Unit/Jobs/ProcessDepositTransactionTest.php` (cobre `app/Jobs/ProcessDepositTransaction.php`)
 2. Depósito falha quando contas estão ausentes: `tests/Unit/Jobs/ProcessDepositTransactionTest.php` (cobre `app/Jobs/ProcessDepositTransaction.php`)
 3. Transferência posta lançamentos e marca `posted`: `tests/Unit/Jobs/ProcessTransferTransactionTest.php` (cobre `app/Jobs/ProcessTransferTransaction.php`)
@@ -169,6 +158,7 @@ php artisan test --filter=TransferRequestTest
 5. Reversal posta lançamentos e marca original como `reversed`: `tests/Unit/Jobs/ProcessReversalTransactionTest.php` (cobre `app/Jobs/ProcessReversalTransaction.php`)
 
 **Integração (Feature)**
+
 1. Login retorna `token` + `user` (Sanctum): `tests/Feature/Auth/LoginTest.php` (cobre `app/Http/Controllers/Api/AuthController.php`)
 2. Login inválido retorna `422`: `tests/Feature/Auth/LoginTest.php` (cobre `app/Http/Controllers/Api/AuthController.php`)
 3. Register cria cliente + conta BRL e retorna token: `tests/Feature/Auth/RegisterTest.php` (cobre `app/Http/Controllers/Api/AuthController.php`)
@@ -187,4 +177,3 @@ Este projeto possui **CI/CD** com um **workflow** no GitHub Actions que executa 
 
 - Arquivo do workflow: `.github/workflows/ci.yml`
 - Execução automática diária: **02:00 (America/Sao_Paulo)** via schedule (cron em UTC no GitHub)
-- Execução manual: `Actions` → `CI` → `Run workflow`

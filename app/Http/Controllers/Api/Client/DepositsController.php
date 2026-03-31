@@ -3,7 +3,11 @@
 namespace App\Http\Controllers\Api\Client;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Client\StoreDepositRequest;
 use App\Jobs\ProcessDepositTransaction;
+use App\Models\Account;
+use App\Models\LedgerTransaction;
+use App\Support\Money;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -17,48 +21,40 @@ class DepositsController extends Controller
         $user = $request->user();
 
         if (! $user || $user->role !== 'client') {
-            return response()->json(['message' => 'Forbidden.'], Response::HTTP_FORBIDDEN);
+            return response()->json(['message' => 'Acesso negado.'], Response::HTTP_FORBIDDEN);
         }
 
-        $accountId = DB::table('accounts')
+        $accountId = Account::query()
             ->where('type', '=', 'user')
             ->where('user_id', '=', $user->id)
             ->where('currency', '=', 'BRL')
             ->value('id');
 
         if (! $accountId) {
-            return response()->json([
-                'ok' => true,
-                'data' => [],
-            ]);
+            return response()->json(['ok' => true, 'data' => []]);
         }
 
-        $deposits = DB::table('ledger_transactions')
+        $deposits = LedgerTransaction::query()
             ->where('type', '=', 'deposit')
             ->where('to_account_id', '=', $accountId)
             ->orderByDesc('created_at')
             ->limit(20)
             ->get(['id', 'uuid', 'amount', 'currency', 'status', 'created_at']);
 
-        return response()->json([
-            'ok' => true,
-            'data' => $deposits,
-        ]);
+        return response()->json(['ok' => true, 'data' => $deposits]);
     }
 
-    public function store(Request $request)
+    public function store(StoreDepositRequest $request)
     {
         $user = $request->user();
 
         if (! $user || $user->role !== 'client') {
-            return response()->json(['message' => 'Forbidden.'], Response::HTTP_FORBIDDEN);
+            return response()->json(['message' => 'Acesso negado.'], Response::HTTP_FORBIDDEN);
         }
 
-        $validated = $request->validate([
-            'amount' => ['required'],
-        ]);
+        $validated = $request->validated();
 
-        $amountCents = $this->parseAmountToCents($validated['amount']);
+        $amountCents = Money::parseAmountToCents($validated['amount']);
 
         if ($amountCents <= 0) {
             throw ValidationException::withMessages([
@@ -67,77 +63,34 @@ class DepositsController extends Controller
         }
 
         $tx = DB::transaction(function () use ($user, $amountCents) {
-            DB::table('accounts')->updateOrInsert(
+            $userAccount = Account::query()->updateOrCreate(
                 ['type' => 'user', 'user_id' => $user->id, 'currency' => 'BRL'],
-                ['name' => $user->name.' (BRL)', 'key' => null, 'updated_at' => now(), 'created_at' => now()]
+                ['name' => $user->name.' (BRL)', 'key' => null]
             );
 
-            DB::table('accounts')->updateOrInsert(
+            $platformAccount = Account::query()->updateOrCreate(
                 ['type' => 'system', 'key' => 'platform', 'currency' => 'BRL'],
-                ['name' => 'Plataforma (BRL)', 'user_id' => null, 'updated_at' => now(), 'created_at' => now()]
+                ['name' => 'Plataforma (BRL)', 'user_id' => null]
             );
 
-            $userAccountId = DB::table('accounts')
-                ->where('type', '=', 'user')
-                ->where('user_id', '=', $user->id)
-                ->where('currency', '=', 'BRL')
-                ->value('id');
-
-            $platformAccountId = DB::table('accounts')
-                ->where('type', '=', 'system')
-                ->where('key', '=', 'platform')
-                ->where('currency', '=', 'BRL')
-                ->value('id');
-
-            if (! $userAccountId || ! $platformAccountId) {
-                throw ValidationException::withMessages([
-                    'amount' => ['Não foi possível preparar as contas para o depósito.'],
-                ]);
-            }
-
-            $transactionId = DB::table('ledger_transactions')->insertGetId([
+            return LedgerTransaction::query()->create([
                 'uuid' => (string) Str::uuid(),
                 'type' => 'deposit',
                 'status' => 'pending',
                 'amount' => $amountCents,
                 'currency' => 'BRL',
                 'requested_by_user_id' => $user->id,
-                'from_account_id' => $platformAccountId,
-                'to_account_id' => $userAccountId,
+                'from_account_id' => $platformAccount->id,
+                'to_account_id' => $userAccount->id,
                 'description' => 'Depósito',
-                'meta' => json_encode(['source' => 'manual']),
-                'created_at' => now(),
-                'updated_at' => now(),
+                'meta' => ['source' => 'manual'],
             ]);
-
-            return DB::table('ledger_transactions')->where('id', '=', $transactionId)->first();
         });
 
         ProcessDepositTransaction::dispatch($tx->id)
             ->onQueue(config('queue.connections.rabbitmq.queue', 'default'))
             ->afterCommit();
 
-        return response()->json([
-            'ok' => true,
-            'data' => $tx,
-        ]);
-    }
-
-    private function parseAmountToCents(mixed $raw): int
-    {
-        $value = trim((string) $raw);
-        $value = str_replace(['R$', ' '], '', $value);
-        $value = str_replace(',', '.', $value);
-
-        if (! preg_match('/^\d+(\.\d{1,2})?$/', $value)) {
-            throw ValidationException::withMessages([
-                'amount' => ['Informe um valor válido (ex: 10.00).'],
-            ]);
-        }
-
-        [$whole, $fraction] = array_pad(explode('.', $value, 2), 2, '0');
-        $fraction = str_pad($fraction, 2, '0');
-
-        return ((int) $whole * 100) + (int) substr($fraction, 0, 2);
+        return response()->json(['ok' => true, 'data' => $tx]);
     }
 }

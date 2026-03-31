@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api\Client;
 
 use App\Http\Controllers\Controller;
+use App\Models\Account;
+use App\Models\LedgerEntry;
+use App\Models\LedgerTransaction;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
 class OverviewController extends Controller
@@ -14,10 +16,10 @@ class OverviewController extends Controller
         $user = $request->user();
 
         if (! $user || $user->role !== 'client') {
-            return response()->json(['message' => 'Forbidden.'], Response::HTTP_FORBIDDEN);
+            return response()->json(['message' => 'Acesso negado.'], Response::HTTP_FORBIDDEN);
         }
 
-        $accountId = DB::table('accounts')
+        $accountId = Account::query()
             ->where('type', '=', 'user')
             ->where('user_id', '=', $user->id)
             ->where('currency', '=', 'BRL')
@@ -37,30 +39,30 @@ class OverviewController extends Controller
             ]);
         }
 
-        $balanceCents = (int) DB::table('ledger_entries')
+        $balanceCents = (int) LedgerEntry::query()
             ->where('account_id', '=', $accountId)
             ->where('currency', '=', 'BRL')
             ->sum('amount');
 
-        $depositsTotalCents = (int) DB::table('ledger_transactions')
+        $depositsTotalCents = (int) LedgerTransaction::query()
             ->where('type', '=', 'deposit')
             ->where('status', '=', 'posted')
             ->where('to_account_id', '=', $accountId)
             ->sum('amount');
 
-        $receivedTotalCents = (int) DB::table('ledger_transactions')
+        $receivedTotalCents = (int) LedgerTransaction::query()
             ->where('type', '=', 'transfer')
             ->where('status', '=', 'posted')
             ->where('to_account_id', '=', $accountId)
             ->sum('amount');
 
-        $sentTotalCents = (int) DB::table('ledger_transactions')
+        $sentTotalCents = (int) LedgerTransaction::query()
             ->where('type', '=', 'transfer')
             ->where('status', '=', 'posted')
             ->where('from_account_id', '=', $accountId)
             ->sum('amount');
 
-        $pendingTransfersCount = (int) DB::table('ledger_transactions')
+        $pendingTransfersCount = (int) LedgerTransaction::query()
             ->where('type', '=', 'transfer')
             ->where('status', '=', 'pending')
             ->where(function ($q) use ($accountId) {

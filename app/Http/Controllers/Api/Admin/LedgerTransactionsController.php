@@ -3,35 +3,28 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use App\Http\Requests\Admin\LedgerTransactionsIndexRequest;
+use App\Models\LedgerTransaction;
 use Symfony\Component\HttpFoundation\Response;
 
 class LedgerTransactionsController extends Controller
 {
-    public function index(Request $request)
+    public function index(LedgerTransactionsIndexRequest $request)
     {
         $admin = $request->user();
 
         if (! $admin || $admin->role !== 'admin') {
-            return response()->json(['message' => 'Unauthorized.'], Response::HTTP_FORBIDDEN);
+            return response()->json(['message' => 'Não autorizado.'], Response::HTTP_FORBIDDEN);
         }
 
-        $validated = $request->validate([
-            'type' => ['nullable', 'string', 'in:deposit,transfer,reversal'],
-            'status' => ['nullable', 'string', 'in:pending,posted,failed,reversed'],
-            'client_id' => ['nullable', 'integer', 'min:1'],
-            'date_from' => ['nullable', 'date'],
-            'date_to' => ['nullable', 'date'],
-            'page' => ['nullable', 'integer', 'min:1'],
-            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
-        ]);
+        $validated = $request->validated();
 
         $page = (int) ($validated['page'] ?? 1);
         $perPage = (int) ($validated['per_page'] ?? 25);
         $offset = ($page - 1) * $perPage;
 
-        $query = DB::table('ledger_transactions as lt')
+        $query = LedgerTransaction::query()
+            ->from('ledger_transactions as lt')
             ->leftJoin('accounts as fa', 'fa.id', '=', 'lt.from_account_id')
             ->leftJoin('users as fu', 'fu.id', '=', 'fa.user_id')
             ->leftJoin('accounts as ta', 'ta.id', '=', 'lt.to_account_id')

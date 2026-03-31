@@ -3,37 +3,37 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
+use App\Http\Requests\Admin\LedgerResetRequest;
+use App\Models\LedgerEntry;
+use App\Models\LedgerTransaction;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
 class LedgerResetController extends Controller
 {
-    public function store(Request $request)
+    public function store(LedgerResetRequest $request)
     {
         $admin = $request->user();
 
         if (! $admin || $admin->role !== 'admin') {
-            return response()->json(['message' => 'Unauthorized.'], Response::HTTP_FORBIDDEN);
+            return response()->json(['message' => 'Não autorizado.'], Response::HTTP_FORBIDDEN);
         }
 
-        $validated = $request->validate([
-            'confirm' => ['required', 'boolean', 'accepted'],
-        ]);
+        $validated = $request->validated();
 
-        if (! $validated['confirm']) {
+        if (! ($validated['confirm'] ?? false)) {
             throw ValidationException::withMessages([
                 'confirm' => ['Confirmação obrigatória.'],
             ]);
         }
 
         $result = DB::transaction(function () {
-            $entriesCount = (int) DB::table('ledger_entries')->count();
-            $transactionsCount = (int) DB::table('ledger_transactions')->count();
+            $entriesCount = (int) LedgerEntry::query()->count();
+            $transactionsCount = (int) LedgerTransaction::query()->count();
 
-            DB::table('ledger_entries')->delete();
-            DB::table('ledger_transactions')->delete();
+            LedgerEntry::query()->delete();
+            LedgerTransaction::query()->delete();
 
             return [
                 'deleted_entries' => $entriesCount,

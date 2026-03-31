@@ -3,8 +3,9 @@
 namespace App\Http\Controllers\Api\Client;
 
 use App\Http\Controllers\Controller;
+use App\Models\Account;
+use App\Models\LedgerTransaction;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
 class TransactionsController extends Controller
@@ -14,10 +15,10 @@ class TransactionsController extends Controller
         $user = $request->user();
 
         if (! $user || $user->role !== 'client') {
-            return response()->json(['message' => 'Forbidden.'], Response::HTTP_FORBIDDEN);
+            return response()->json(['message' => 'Acesso negado.'], Response::HTTP_FORBIDDEN);
         }
 
-        $accountId = DB::table('accounts')
+        $accountId = Account::query()
             ->where('type', '=', 'user')
             ->where('user_id', '=', $user->id)
             ->where('currency', '=', 'BRL')
@@ -27,7 +28,7 @@ class TransactionsController extends Controller
             return response()->json(['ok' => true, 'data' => []]);
         }
 
-        $rows = DB::table('ledger_transactions')
+        $rows = LedgerTransaction::query()
             ->where(function ($q) use ($accountId) {
                 $q->where('from_account_id', '=', $accountId)
                     ->orWhere('to_account_id', '=', $accountId);

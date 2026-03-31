@@ -2,6 +2,8 @@
 
 namespace App\Jobs;
 
+use App\Models\LedgerEntry;
+use App\Models\LedgerTransaction;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -21,8 +23,8 @@ class ProcessDepositTransaction implements ShouldQueue
     public function handle(): void
     {
         DB::transaction(function () {
-            /** @var object|null $tx */
-            $tx = DB::table('ledger_transactions')
+            /** @var LedgerTransaction|null $tx */
+            $tx = LedgerTransaction::query()
                 ->where('id', '=', $this->ledgerTransactionId)
                 ->lockForUpdate()
                 ->first();
@@ -39,12 +41,12 @@ class ProcessDepositTransaction implements ShouldQueue
                 return;
             }
 
-            $alreadyHasEntries = DB::table('ledger_entries')
+            $alreadyHasEntries = LedgerEntry::query()
                 ->where('ledger_transaction_id', '=', $tx->id)
                 ->exists();
 
             if ($alreadyHasEntries) {
-                DB::table('ledger_transactions')->where('id', '=', $tx->id)->update([
+                LedgerTransaction::query()->where('id', '=', $tx->id)->update([
                     'status' => 'posted',
                     'updated_at' => now(),
                 ]);
@@ -53,7 +55,7 @@ class ProcessDepositTransaction implements ShouldQueue
             }
 
             if (! $tx->from_account_id || ! $tx->to_account_id) {
-                DB::table('ledger_transactions')->where('id', '=', $tx->id)->update([
+                LedgerTransaction::query()->where('id', '=', $tx->id)->update([
                     'status' => 'failed',
                     'updated_at' => now(),
                 ]);
@@ -61,7 +63,7 @@ class ProcessDepositTransaction implements ShouldQueue
                 return;
             }
 
-            DB::table('ledger_entries')->insert([
+            LedgerEntry::query()->insert([
                 [
                     'ledger_transaction_id' => $tx->id,
                     'account_id' => $tx->to_account_id,
@@ -84,12 +86,10 @@ class ProcessDepositTransaction implements ShouldQueue
                 ],
             ]);
 
-            DB::table('ledger_transactions')->where('id', '=', $tx->id)->update([
+            LedgerTransaction::query()->where('id', '=', $tx->id)->update([
                 'status' => 'posted',
                 'updated_at' => now(),
             ]);
         }, 3);
     }
 }
-
-

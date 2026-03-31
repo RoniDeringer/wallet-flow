@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreClientRequest;
+use App\Models\Account;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +18,7 @@ class ClientsController extends Controller
         $admin = $request->user();
 
         if (! $admin || $admin->role !== 'admin') {
-            return response()->json(['message' => 'Unauthorized.'], Response::HTTP_FORBIDDEN);
+            return response()->json(['message' => 'Não autorizado.'], Response::HTTP_FORBIDDEN);
         }
 
         return $admin;
@@ -29,7 +31,7 @@ class ClientsController extends Controller
             return $admin;
         }
 
-        $clients = DB::table('users')
+        $clients = User::query()
             ->where('users.role', '=', 'client')
             ->leftJoin('accounts', function ($join) {
                 $join->on('accounts.user_id', '=', 'users.id')
@@ -56,20 +58,14 @@ class ClientsController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreClientRequest $request)
     {
         $admin = $this->requireAdmin($request);
         if ($admin instanceof Response) {
             return $admin;
         }
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-            'username' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9_]+$/', 'unique:users,username'],
-        ], [
-            'username.regex' => 'O username deve conter apenas letras, números e underscore (_).',
-        ]);
+        $validated = $request->validated();
 
         try {
             $user = DB::transaction(function () use ($validated) {
@@ -81,14 +77,12 @@ class ClientsController extends Controller
                     'password' => '12345',
                 ]);
 
-                DB::table('accounts')->insert([
+                Account::query()->create([
                     'type' => 'user',
                     'user_id' => $created->id,
                     'key' => null,
                     'name' => $created->name,
                     'currency' => 'BRL',
-                    'created_at' => now(),
-                    'updated_at' => now(),
                 ]);
 
                 return $created;

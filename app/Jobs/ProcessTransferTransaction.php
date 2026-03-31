@@ -2,6 +2,8 @@
 
 namespace App\Jobs;
 
+use App\Models\LedgerEntry;
+use App\Models\LedgerTransaction;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -21,7 +23,8 @@ class ProcessTransferTransaction implements ShouldQueue
     public function handle(): void
     {
         DB::transaction(function () {
-            $tx = DB::table('ledger_transactions')
+            /** @var LedgerTransaction|null $tx */
+            $tx = LedgerTransaction::query()
                 ->where('id', '=', $this->ledgerTransactionId)
                 ->lockForUpdate()
                 ->first();
@@ -39,49 +42,53 @@ class ProcessTransferTransaction implements ShouldQueue
             }
 
             if (! $tx->from_account_id || ! $tx->to_account_id) {
-                DB::table('ledger_transactions')->where('id', '=', $tx->id)->update([
+                LedgerTransaction::query()->where('id', '=', $tx->id)->update([
                     'status' => 'failed',
                     'updated_at' => now(),
                 ]);
+
                 return;
             }
 
-            $alreadyHasEntries = DB::table('ledger_entries')
+            $alreadyHasEntries = LedgerEntry::query()
                 ->where('ledger_transaction_id', '=', $tx->id)
                 ->exists();
 
             if ($alreadyHasEntries) {
-                DB::table('ledger_transactions')->where('id', '=', $tx->id)->update([
+                LedgerTransaction::query()->where('id', '=', $tx->id)->update([
                     'status' => 'posted',
                     'updated_at' => now(),
                 ]);
+
                 return;
             }
 
             $amount = (int) $tx->amount;
             if ($amount <= 0) {
-                DB::table('ledger_transactions')->where('id', '=', $tx->id)->update([
+                LedgerTransaction::query()->where('id', '=', $tx->id)->update([
                     'status' => 'failed',
                     'updated_at' => now(),
                 ]);
+
                 return;
             }
 
-            $senderBalance = (int) DB::table('ledger_entries')
+            $senderBalance = (int) LedgerEntry::query()
                 ->where('account_id', '=', $tx->from_account_id)
                 ->where('currency', '=', $tx->currency)
                 ->sum('amount');
 
             if ($senderBalance < $amount) {
-                DB::table('ledger_transactions')->where('id', '=', $tx->id)->update([
+                LedgerTransaction::query()->where('id', '=', $tx->id)->update([
                     'status' => 'failed',
-                    'meta' => json_encode(['reason' => 'insufficient_funds', 'balance_cents' => $senderBalance]),
+                    'meta' => ['reason' => 'insufficient_funds', 'balance_cents' => $senderBalance],
                     'updated_at' => now(),
                 ]);
+
                 return;
             }
 
-            DB::table('ledger_entries')->insert([
+            LedgerEntry::query()->insert([
                 [
                     'ledger_transaction_id' => $tx->id,
                     'account_id' => $tx->from_account_id,
@@ -104,7 +111,7 @@ class ProcessTransferTransaction implements ShouldQueue
                 ],
             ]);
 
-            DB::table('ledger_transactions')->where('id', '=', $tx->id)->update([
+            LedgerTransaction::query()->where('id', '=', $tx->id)->update([
                 'status' => 'posted',
                 'updated_at' => now(),
             ]);
