@@ -1,111 +1,131 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Wallet Flow — Desafio (carteira financeira)
+
+Aplicação de carteira financeira com **depósitos**, **transferências** e **rollback (reversal)**, usando **Ledger (double-entry)**, **RabbitMQ** (fila) e **Laravel Sanctum** (auth).
 
 <p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
+  <img src="public/favicon.svg" width="110" alt="Wallet Flow icon" />
 </p>
 
-## About Laravel
+<p align="center">
+  <img alt="Laravel" src="https://img.shields.io/badge/Laravel-12.56.0-FF2D20?logo=laravel&logoColor=white" />
+  <img alt="PHP" src="https://img.shields.io/badge/PHP-8.2.12-777BB4?logo=php&logoColor=white" />
+  <img alt="Sanctum" src="https://img.shields.io/badge/Sanctum-4.3.1-FF2D20?logo=laravel&logoColor=white" />
+  <img alt="Vue" src="https://img.shields.io/badge/Vue-3.5.31-4FC08D?logo=vue.js&logoColor=white" />
+  <img alt="Vite" src="https://img.shields.io/badge/Vite-6.4.1-646CFF?logo=vite&logoColor=white" />
+  <img alt="Tailwind" src="https://img.shields.io/badge/Tailwind-4.2.2-06B6D4?logo=tailwindcss&logoColor=white" />
+  <img alt="MySQL" src="https://img.shields.io/badge/MySQL-8.4-4479A1?logo=mysql&logoColor=white" />
+  <img alt="RabbitMQ" src="https://img.shields.io/badge/RabbitMQ-3--management-FF6600?logo=rabbitmq&logoColor=white" />
+  <img alt="Docker" src="https://img.shields.io/badge/Docker-29.3.0-2496ED?logo=docker&logoColor=white" />
+</p>
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## 🧰 Tecnologias / Ferramentas
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- **Backend**: Laravel 12.56.0 (PHP 8.2.12)
+- **Frontend**: Vue 3.5.31 + Vite 6.4.1 + Tailwind 4.2.2
+- **Banco de dados**: MySQL 8.4 (Docker)
+- **Filas**: RabbitMQ 3 (management) + driver `vladimir-yuldashev/laravel-queue-rabbitmq` 14.4.0
+- **Auth**: Laravel Sanctum 4.3.1 (Bearer token via `personal_access_tokens`)
+- **Infra (dev)**: Docker Compose (containers: `mysql`, `rabbitmq`, `worker`)
+- **UX**: SweetAlert2 11.12.4 (toasts de sucesso/erro)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## 🧠 Conceitos
 
-## Learning Laravel
+- **Ledger (double-entry)**: toda operação gera **2 lançamentos** (`ledger_entries`) para manter auditoria e rastreabilidade.
+- **Jobs/Queues**: `deposit`, `transfer` e `reversal` são criadas como `pending` e processadas por worker.
+- **Transações de banco**: operações críticas usam `DB::transaction()` + locks quando necessário.
+- **Idempotência (transferência)**: suporte via header `Idempotency-Key` (evita duplicidade).
+- **SOLID / Clean Code (parcial)**: separação por controllers/jobs e validações explícitas (pode evoluir para Service/Repository/DTO).
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## 🗄️ Database
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+![Diagrama do banco de dados](docs/images/diagrama-walletflow.png)
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+- 🔐 **Auth / usuários**
+    - `users`: usuários (admin/cliente)
+    - `personal_access_tokens`: tokens do Sanctum (sessão via API)
+    - `password_reset_tokens`: reset de senha (padrão Laravel)
+    - `sessions`: sessões do Laravel (driver database; secundário no SPA com Bearer token)
+- 💰 **Carteira (Ledger)**
+    - `accounts`: contas BRL do usuário e conta `system` da plataforma
+    - `ledger_transactions`: transações (deposit/transfer/reversal) com status (pending/posted/failed)
+    - `ledger_entries`: lançamentos (double-entry) que formam o saldo
+- 🐇 **Filas / jobs**
+    - `jobs`, `failed_jobs`, `job_batches`: infraestrutura do Laravel Queue (útil p/ debug e se trocar driver)
+- 🧊 **Cache / infra**
+    - `cache`, `cache_locks`: cache e locks do Laravel (driver database)
+- 🧾 **Controle interno**
+    - `migrations`: histórico das migrations executadas
 
-## Laravel Sponsors
+## 📜 Regras de negócio
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+### Saldo e Ledger
 
-### Premium Partners
+- O **saldo** do cliente é calculado pela soma de `ledger_entries.amount` (em centavos) da conta BRL.
+- A aplicação não “edita saldo”: o saldo é consequência dos lançamentos do ledger.
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+### Depósitos (`deposit`)
 
-## Contributing
+- Valor deve ser **maior que zero**.
+- Cria uma transação `ledger_transactions` com `status=pending` e enfileira o job para postar os lançamentos.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### Transferências (`transfer`)
 
-## Code of Conduct
+- Valor deve ser **maior que zero**.
+- Destinatário deve existir (cliente) e **não pode ser o próprio remetente**.
+- **Saldo insuficiente** bloqueia a criação.
+- Cria uma transação `pending` e enfileira o job para postar os lançamentos.
+- Suporta **idempotência** via `Idempotency-Key`.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### Rollback (`reversal`)
 
-## Security Vulnerabilities
+- Rollback **não apaga** histórico: cria uma nova transação do tipo `reversal` apontando para `reversal_of_id`.
+- Só permite rollback de transações `posted`.
+- Não permite rollback se existir **transferência `pending`** envolvendo o usuário (evita inconsistências).
+- Não permite rollback se a reversão deixaria o usuário com **saldo negativo**.
+    - Exemplo: usuário depositou, transferiu todo o valor e tenta reverter o depósito → bloqueado.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## 🔐 Autenticação (Sanctum)
 
-## License
+- `POST /api/login` retorna `token` + `user`.
+- O frontend usa `Authorization: Bearer <token>` (persistido em `localStorage`).
+- `POST /api/logout` revoga o token atual.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## 🚀 Execução (dev)
 
----
+### Subir infraestrutura (MySQL/RabbitMQ/Worker)
 
-# Wallet Flow (desafio - carteira financeira)
+```bash
+docker compose up -d
+```
 
-## Visao tecnica
+- RabbitMQ UI: `http://127.0.0.1:15672` (default `guest` / `guest`)
+- Fila configurada: `walletflow.transactions` (env `RABBITMQ_QUEUE`)
 
-- Backend: Laravel 12, PHP 8.2, SQL (MySQL via Docker para o worker).
-- Frontend: Vue 3 + Vite + Tailwind.
-- Fila: RabbitMQ (driver `vladimir-yuldashev/laravel-queue-rabbitmq`).
-- Padrao de dados: Ledger (`ledger_transactions` + `ledger_entries`) para auditoria.
-- Operacoes: `deposit`, `transfer`, `reversal`.
+### App (local)
 
-## Execucao tecnica (dev)
+```bash
+composer install
+npm install
 
-- RabbitMQ UI: `http://127.0.0.1:15672` (default: `guest` / `guest`).
-- Fila configurada: `walletflow.transactions` (variavel `RABBITMQ_QUEUE`).
-- Worker:
-  - Docker: `docker compose up -d --build rabbitmq mysql worker`
-  - Local: `php artisan rabbitmq:consume rabbitmq --queue=walletflow.transactions --name=local-worker`
-- Como verificar se ha worker consumindo:
-  - RabbitMQ UI -> `Queues and Streams` -> `walletflow.transactions` -> `Consumers` (precisa ser > 0)
-  - `docker compose logs -f worker` (quando usando worker no Docker)
+php artisan migrate --seed
 
-## Endpoints (modo dev)
+npm run dev
+php artisan serve
+```
 
-Observacao: atualmente usamos o header `X-User-Id` como autenticacao temporaria. Em producao isso deve ser substituido por Sanctum.
+### Monitorar worker / fila
 
-- `POST /api/login` -> valida email/senha e retorna o usuario.
-- `GET /api/me/overview` -> overview do Ledger (saldo/totalizadores).
-- `GET /api/me/wallet` -> saldo atual via Ledger.
-- `GET /api/me/deposits` / `POST /api/me/deposits` -> lista/cria deposito (cria `pending` e enfileira job).
-- `GET /api/me/transactions` -> lista transacoes do usuario.
-- `POST /api/me/transfers` -> cria transferencia por email (cria `pending` e enfileira job).
-- `POST /api/me/transactions/{transactionId}/reversal` -> solicita rollback (cria `reversal` e enfileira job).
+- RabbitMQ UI → `Queues and Streams` → `walletflow.transactions` → `Consumers` (deve ser > 0)
+- Logs do worker: `docker compose logs -f worker`
 
-## Regras de negocio
+### Rodar worker local (sem Docker)
 
-### Rollback (reversal)
+```bash
+php artisan rabbitmq:consume rabbitmq --queue=walletflow.transactions --sleep=1 --tries=3 --timeout=90 --name=local-worker
+```
 
-- Rollback nao "desfaz" lancamentos: ele cria uma nova transacao do tipo `reversal` apontando para `reversal_of_id` (auditoria).
-- So permite rollback de transacoes `posted`.
-- Nao permite rollback se existir alguma transferencia `pending` envolvendo o usuario (evita inconsistencias de saldo).
-- Nao permite rollback se, ao reverter, o saldo do usuario ficaria negativo.
-  - Exemplo: usuario recebeu um deposito, transferiu todo o valor e tenta reverter o deposito -> bloqueado.
+## 🧪 Testes
+
+```bash
+php artisan test
+```
