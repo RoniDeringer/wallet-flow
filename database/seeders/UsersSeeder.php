@@ -35,10 +35,10 @@ class UsersSeeder extends Seeder
         );
 
         User::query()->updateOrCreate(
-            ['email' => 'daniel@daniel.com'],
+            ['email' => 'daniel@gmail.com'],
             [
                 'name' => 'Daniel',
-                'email' => 'daniel@daniel.com',
+                'email' => 'daniel@gmail.com',
                 'username' => 'daniel',
                 'role' => 'client',
                 'password' => '12345',

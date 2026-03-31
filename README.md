@@ -126,6 +126,65 @@ php artisan rabbitmq:consume rabbitmq --queue=walletflow.transactions --sleep=1 
 
 ## 🧪 Testes
 
+### 🧩 Conceito (bem simples)
+
+- **Teste unitário**: testa uma parte pequena do sistema “sozinha” (como uma classe), para garantir que ela faz o que deve fazer.
+  - Exemplo no projeto: testar um **Job** que “posta” uma transação no ledger e confere se ele gerou os 2 lançamentos (double-entry).
+- **Teste de integração**: testa “várias peças juntas” (rota → controller → banco → fila), simulando o uso real da API.
+  - Exemplo no projeto: chamar `POST /api/me/transfers` e validar resposta/validações e se o job foi enfileirado.
+
+### ✅ Como rodar
+
 ```bash
 php artisan test
 ```
+
+⚠️ Importante: os testes usam `RefreshDatabase` (ele recria o banco durante os testes). Por isso o ambiente de testes está configurado para **SQLite em memória** no `phpunit.xml`, para não apagar seu MySQL local.
+
+Rodar só unitários:
+
+```bash
+php artisan test --testsuite=Unit
+```
+
+Rodar só integrações (Feature):
+
+```bash
+php artisan test --testsuite=Feature
+```
+
+Rodar um teste específico (pelo nome):
+
+```bash
+php artisan test --filter=TransferRequestTest
+```
+
+### 📌 O que está sendo testado (resumo)
+
+**Unitários**
+1. Depósito posta double-entry e marca `posted`: `tests/Unit/Jobs/ProcessDepositTransactionTest.php` (cobre `app/Jobs/ProcessDepositTransaction.php`)
+2. Depósito falha quando contas estão ausentes: `tests/Unit/Jobs/ProcessDepositTransactionTest.php` (cobre `app/Jobs/ProcessDepositTransaction.php`)
+3. Transferência posta lançamentos e marca `posted`: `tests/Unit/Jobs/ProcessTransferTransactionTest.php` (cobre `app/Jobs/ProcessTransferTransaction.php`)
+4. Transferência falha por saldo insuficiente: `tests/Unit/Jobs/ProcessTransferTransactionTest.php` (cobre `app/Jobs/ProcessTransferTransaction.php`)
+5. Reversal posta lançamentos e marca original como `reversed`: `tests/Unit/Jobs/ProcessReversalTransactionTest.php` (cobre `app/Jobs/ProcessReversalTransaction.php`)
+
+**Integração (Feature)**
+1. Login retorna `token` + `user` (Sanctum): `tests/Feature/Auth/LoginTest.php` (cobre `app/Http/Controllers/Api/AuthController.php`)
+2. Login inválido retorna `422`: `tests/Feature/Auth/LoginTest.php` (cobre `app/Http/Controllers/Api/AuthController.php`)
+3. Register cria cliente + conta BRL e retorna token: `tests/Feature/Auth/RegisterTest.php` (cobre `app/Http/Controllers/Api/AuthController.php`)
+4. Admin cria cliente com senha padrão `12345`: `tests/Feature/Admin/CreateClientTest.php` (cobre `app/Http/Controllers/Api/Admin/ClientsController.php`)
+5. Cliente não consegue criar cliente (403): `tests/Feature/Admin/CreateClientTest.php` (cobre `app/Http/Controllers/Api/Admin/ClientsController.php`)
+6. Cliente cria depósito (pending) e enfileira job: `tests/Feature/Client/DepositRequestTest.php` (cobre `app/Http/Controllers/Api/Client/DepositsController.php`)
+7. Depósito inválido retorna `422`: `tests/Feature/Client/DepositRequestTest.php` (cobre `app/Http/Controllers/Api/Client/DepositsController.php`)
+8. Cliente cria transferência (pending) e enfileira job: `tests/Feature/Client/TransferRequestTest.php` (cobre `app/Http/Controllers/Api/Client/TransfersController.php`)
+9. Transferência sem saldo retorna `422`: `tests/Feature/Client/TransferRequestTest.php` (cobre `app/Http/Controllers/Api/Client/TransfersController.php`)
+10. Cliente solicita reversal e enfileira job: `tests/Feature/Client/ReversalRequestTest.php` (cobre `app/Http/Controllers/Api/Client/ReversalsController.php`)
+11. Reversal bloqueado se houver transferência pendente: `tests/Feature/Client/ReversalRequestTest.php` (cobre `app/Http/Controllers/Api/Client/ReversalsController.php`)
+
+### 🤖 CI/CD (GitHub Actions)
+
+Este projeto possui **CI/CD** com um **workflow** no GitHub Actions que executa `npm run build` e `php artisan test`.
+
+- Arquivo do workflow: `.github/workflows/ci.yml`
+- Execução automática diária: **02:00 (America/Sao_Paulo)** via schedule (cron em UTC no GitHub)
+- Execução manual: `Actions` → `CI` → `Run workflow`
