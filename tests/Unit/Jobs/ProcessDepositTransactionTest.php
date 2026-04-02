@@ -3,6 +3,7 @@
 namespace Tests\Unit\Jobs;
 
 use App\Jobs\ProcessDepositTransaction;
+use App\Models\LedgerTransaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -25,14 +26,14 @@ class ProcessDepositTransactionTest extends TestCase
 
         $txId = DB::table('ledger_transactions')->insertGetId([
             'uuid' => (string) Str::uuid(),
-            'type' => 'deposit',
-            'status' => 'pending',
+            'type' => LedgerTransaction::TYPE_DEPOSIT,
+            'status' => LedgerTransaction::STATUS_PENDING,
             'amount' => 1500,
-            'currency' => 'BRL',
+            'currency' => LedgerTransaction::CURRENCY_BRL,
             'requested_by_user_id' => $user->id,
             'from_account_id' => $platformAccountId,
             'to_account_id' => $userAccountId,
-            'description' => 'Depósito',
+            'description' => LedgerTransaction::DESCRIPTION_DEPOSIT,
             'meta' => null,
             'created_at' => now(),
             'updated_at' => now(),
@@ -64,14 +65,14 @@ class ProcessDepositTransactionTest extends TestCase
 
         $txId = DB::table('ledger_transactions')->insertGetId([
             'uuid' => (string) Str::uuid(),
-            'type' => 'deposit',
-            'status' => 'pending',
+            'type' => LedgerTransaction::TYPE_DEPOSIT,
+            'status' => LedgerTransaction::STATUS_PENDING,
             'amount' => 1500,
-            'currency' => 'BRL',
+            'currency' => LedgerTransaction::CURRENCY_BRL,
             'requested_by_user_id' => $user->id,
             'from_account_id' => null,
             'to_account_id' => null,
-            'description' => 'Depósito',
+            'description' => LedgerTransaction::DESCRIPTION_DEPOSIT,
             'meta' => null,
             'created_at' => now(),
             'updated_at' => now(),
@@ -112,4 +113,6 @@ class ProcessDepositTransactionTest extends TestCase
             ->value('id');
     }
 }
+
+
 

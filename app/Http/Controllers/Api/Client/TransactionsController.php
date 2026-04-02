@@ -21,7 +21,7 @@ class TransactionsController extends Controller
         $accountId = Account::query()
             ->where('type', '=', 'user')
             ->where('user_id', '=', $user->id)
-            ->where('currency', '=', 'BRL')
+            ->where('currency', '=', LedgerTransaction::CURRENCY_BRL)
             ->value('id');
 
         if (! $accountId) {

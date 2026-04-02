@@ -27,7 +27,7 @@ class DepositsController extends Controller
         $accountId = Account::query()
             ->where('type', '=', 'user')
             ->where('user_id', '=', $user->id)
-            ->where('currency', '=', 'BRL')
+            ->where('currency', '=', LedgerTransaction::CURRENCY_BRL)
             ->value('id');
 
         if (! $accountId) {
@@ -35,7 +35,7 @@ class DepositsController extends Controller
         }
 
         $deposits = LedgerTransaction::query()
-            ->where('type', '=', 'deposit')
+            ->where('type', '=', LedgerTransaction::TYPE_DEPOSIT)
             ->where('to_account_id', '=', $accountId)
             ->orderByDesc('created_at')
             ->limit(20)
@@ -64,26 +64,26 @@ class DepositsController extends Controller
 
         $tx = DB::transaction(function () use ($user, $amountCents) {
             $userAccount = Account::query()->updateOrCreate(
-                ['type' => 'user', 'user_id' => $user->id, 'currency' => 'BRL'],
-                ['name' => $user->name.' (BRL)', 'key' => null]
+                ['type' => 'user', 'user_id' => $user->id, 'currency' => LedgerTransaction::CURRENCY_BRL],
+                ['name' => $user->name . ' (' . LedgerTransaction::CURRENCY_BRL . ')', 'key' => null]
             );
 
             $platformAccount = Account::query()->updateOrCreate(
-                ['type' => 'system', 'key' => 'platform', 'currency' => 'BRL'],
-                ['name' => 'Plataforma (BRL)', 'user_id' => null]
+                ['type' => 'system', 'key' => 'platform', 'currency' => LedgerTransaction::CURRENCY_BRL],
+                ['name' => 'Plataforma (' . LedgerTransaction::CURRENCY_BRL . ')', 'user_id' => null]
             );
 
             return LedgerTransaction::query()->create([
                 'uuid' => (string) Str::uuid(),
-                'type' => 'deposit',
-                'status' => 'pending',
+                'type' => LedgerTransaction::TYPE_DEPOSIT,
+                'status' => LedgerTransaction::STATUS_PENDING,
                 'amount' => $amountCents,
-                'currency' => 'BRL',
+                'currency' => LedgerTransaction::CURRENCY_BRL,
                 'requested_by_user_id' => $user->id,
                 'from_account_id' => $platformAccount->id,
                 'to_account_id' => $userAccount->id,
-                'description' => 'Depósito',
-                'meta' => ['source' => 'manual'],
+                'description' => LedgerTransaction::DESCRIPTION_DEPOSIT,
+                'meta' => ['source' => LedgerTransaction::META_SOURCE_MANUAL],
             ]);
         });
 

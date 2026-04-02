@@ -33,17 +33,17 @@ class ProcessTransferTransaction implements ShouldQueue
                 return;
             }
 
-            if ($tx->type !== 'transfer') {
+            if ($tx->type !== LedgerTransaction::TYPE_TRANSFER) {
                 return;
             }
 
-            if ($tx->status === 'posted' || $tx->status === 'failed') {
+            if ($tx->status === LedgerTransaction::STATUS_POSTED || $tx->status === LedgerTransaction::STATUS_FAILED) {
                 return;
             }
 
             if (! $tx->from_account_id || ! $tx->to_account_id) {
                 LedgerTransaction::query()->where('id', '=', $tx->id)->update([
-                    'status' => 'failed',
+                    'status' => LedgerTransaction::STATUS_FAILED,
                     'updated_at' => now(),
                 ]);
 
@@ -56,7 +56,7 @@ class ProcessTransferTransaction implements ShouldQueue
 
             if ($alreadyHasEntries) {
                 LedgerTransaction::query()->where('id', '=', $tx->id)->update([
-                    'status' => 'posted',
+                    'status' => LedgerTransaction::STATUS_POSTED,
                     'updated_at' => now(),
                 ]);
 
@@ -66,7 +66,7 @@ class ProcessTransferTransaction implements ShouldQueue
             $amount = (int) $tx->amount;
             if ($amount <= 0) {
                 LedgerTransaction::query()->where('id', '=', $tx->id)->update([
-                    'status' => 'failed',
+                    'status' => LedgerTransaction::STATUS_FAILED,
                     'updated_at' => now(),
                 ]);
 
@@ -80,7 +80,7 @@ class ProcessTransferTransaction implements ShouldQueue
 
             if ($senderBalance < $amount) {
                 LedgerTransaction::query()->where('id', '=', $tx->id)->update([
-                    'status' => 'failed',
+                    'status' => LedgerTransaction::STATUS_FAILED,
                     'meta' => ['reason' => 'insufficient_funds', 'balance_cents' => $senderBalance],
                     'updated_at' => now(),
                 ]);
@@ -112,9 +112,10 @@ class ProcessTransferTransaction implements ShouldQueue
             ]);
 
             LedgerTransaction::query()->where('id', '=', $tx->id)->update([
-                'status' => 'posted',
+                'status' => LedgerTransaction::STATUS_POSTED,
                 'updated_at' => now(),
             ]);
         }, 3);
     }
 }
+

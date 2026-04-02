@@ -3,6 +3,7 @@
 namespace Tests\Unit\Jobs;
 
 use App\Jobs\ProcessReversalTransaction;
+use App\Models\LedgerTransaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -22,14 +23,14 @@ class ProcessReversalTransactionTest extends TestCase
 
         $originalId = DB::table('ledger_transactions')->insertGetId([
             'uuid' => (string) Str::uuid(),
-            'type' => 'deposit',
-            'status' => 'posted',
+            'type' => LedgerTransaction::TYPE_DEPOSIT,
+            'status' => LedgerTransaction::STATUS_POSTED,
             'amount' => 2000,
-            'currency' => 'BRL',
+            'currency' => LedgerTransaction::CURRENCY_BRL,
             'requested_by_user_id' => $user->id,
             'from_account_id' => $platformAccountId,
             'to_account_id' => $userAccountId,
-            'description' => 'Depósito',
+            'description' => LedgerTransaction::DESCRIPTION_DEPOSIT,
             'meta' => null,
             'created_at' => now(),
             'updated_at' => now(),
@@ -40,9 +41,9 @@ class ProcessReversalTransactionTest extends TestCase
                 'ledger_transaction_id' => $originalId,
                 'account_id' => $userAccountId,
                 'amount' => 2000,
-                'currency' => 'BRL',
+                'currency' => LedgerTransaction::CURRENCY_BRL,
                 'balance_after' => null,
-                'description' => 'Depósito',
+                'description' => LedgerTransaction::DESCRIPTION_DEPOSIT,
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
@@ -50,9 +51,9 @@ class ProcessReversalTransactionTest extends TestCase
                 'ledger_transaction_id' => $originalId,
                 'account_id' => $platformAccountId,
                 'amount' => -2000,
-                'currency' => 'BRL',
+                'currency' => LedgerTransaction::CURRENCY_BRL,
                 'balance_after' => null,
-                'description' => 'Depósito',
+                'description' => LedgerTransaction::DESCRIPTION_DEPOSIT,
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
@@ -60,15 +61,15 @@ class ProcessReversalTransactionTest extends TestCase
 
         $reversalId = DB::table('ledger_transactions')->insertGetId([
             'uuid' => (string) Str::uuid(),
-            'type' => 'reversal',
-            'status' => 'pending',
+            'type' => LedgerTransaction::TYPE_REVERSAL,
+            'status' => LedgerTransaction::STATUS_PENDING,
             'amount' => 2000,
-            'currency' => 'BRL',
+            'currency' => LedgerTransaction::CURRENCY_BRL,
             'requested_by_user_id' => $user->id,
             'from_account_id' => $userAccountId,
             'to_account_id' => $platformAccountId,
             'reversal_of_id' => $originalId,
-            'description' => 'Reversão',
+            'description' => LedgerTransaction::DESCRIPTION_REVERSAL,
             'meta' => null,
             'created_at' => now(),
             'updated_at' => now(),
@@ -115,4 +116,6 @@ class ProcessReversalTransactionTest extends TestCase
             ->value('id');
     }
 }
+
+
 

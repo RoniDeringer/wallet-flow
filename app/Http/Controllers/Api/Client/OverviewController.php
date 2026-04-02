@@ -22,14 +22,14 @@ class OverviewController extends Controller
         $accountId = Account::query()
             ->where('type', '=', 'user')
             ->where('user_id', '=', $user->id)
-            ->where('currency', '=', 'BRL')
+            ->where('currency', '=', LedgerTransaction::CURRENCY_BRL)
             ->value('id');
 
         if (! $accountId) {
             return response()->json([
                 'ok' => true,
                 'data' => [
-                    'currency' => 'BRL',
+                    'currency' => LedgerTransaction::CURRENCY_BRL,
                     'balance_cents' => 0,
                     'deposits_total_cents' => 0,
                     'transfers_received_total_cents' => 0,
@@ -41,30 +41,30 @@ class OverviewController extends Controller
 
         $balanceCents = (int) LedgerEntry::query()
             ->where('account_id', '=', $accountId)
-            ->where('currency', '=', 'BRL')
+            ->where('currency', '=', LedgerTransaction::CURRENCY_BRL)
             ->sum('amount');
 
         $depositsTotalCents = (int) LedgerTransaction::query()
-            ->where('type', '=', 'deposit')
-            ->where('status', '=', 'posted')
+            ->where('type', '=', LedgerTransaction::TYPE_DEPOSIT)
+            ->where('status', '=', LedgerTransaction::STATUS_POSTED)
             ->where('to_account_id', '=', $accountId)
             ->sum('amount');
 
         $receivedTotalCents = (int) LedgerTransaction::query()
-            ->where('type', '=', 'transfer')
-            ->where('status', '=', 'posted')
+            ->where('type', '=', LedgerTransaction::TYPE_TRANSFER)
+            ->where('status', '=', LedgerTransaction::STATUS_POSTED)
             ->where('to_account_id', '=', $accountId)
             ->sum('amount');
 
         $sentTotalCents = (int) LedgerTransaction::query()
-            ->where('type', '=', 'transfer')
-            ->where('status', '=', 'posted')
+            ->where('type', '=', LedgerTransaction::TYPE_TRANSFER)
+            ->where('status', '=', LedgerTransaction::STATUS_POSTED)
             ->where('from_account_id', '=', $accountId)
             ->sum('amount');
 
         $pendingTransfersCount = (int) LedgerTransaction::query()
-            ->where('type', '=', 'transfer')
-            ->where('status', '=', 'pending')
+            ->where('type', '=', LedgerTransaction::TYPE_TRANSFER)
+            ->where('status', '=', LedgerTransaction::STATUS_PENDING)
             ->where(function ($q) use ($accountId) {
                 $q->where('from_account_id', '=', $accountId)
                     ->orWhere('to_account_id', '=', $accountId);
@@ -74,7 +74,7 @@ class OverviewController extends Controller
         return response()->json([
             'ok' => true,
             'data' => [
-                'currency' => 'BRL',
+                'currency' => LedgerTransaction::CURRENCY_BRL,
                 'balance_cents' => $balanceCents,
                 'deposits_total_cents' => $depositsTotalCents,
                 'transfers_received_total_cents' => $receivedTotalCents,

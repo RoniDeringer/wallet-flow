@@ -34,17 +34,17 @@ class ProcessReversalTransaction implements ShouldQueue
                 return;
             }
 
-            if ($reversal->type !== 'reversal') {
+            if ($reversal->type !== LedgerTransaction::TYPE_REVERSAL) {
                 return;
             }
 
-            if ($reversal->status === 'posted' || $reversal->status === 'failed') {
+            if ($reversal->status === LedgerTransaction::STATUS_POSTED || $reversal->status === LedgerTransaction::STATUS_FAILED) {
                 return;
             }
 
             if (! $reversal->reversal_of_id) {
                 LedgerTransaction::query()->where('id', '=', $reversal->id)->update([
-                    'status' => 'failed',
+                    'status' => LedgerTransaction::STATUS_FAILED,
                     'updated_at' => now(),
                 ]);
 
@@ -57,9 +57,9 @@ class ProcessReversalTransaction implements ShouldQueue
                 ->lockForUpdate()
                 ->first();
 
-            if (! $original || $original->status !== 'posted') {
+            if (! $original || $original->status !== LedgerTransaction::STATUS_POSTED) {
                 LedgerTransaction::query()->where('id', '=', $reversal->id)->update([
-                    'status' => 'failed',
+                    'status' => LedgerTransaction::STATUS_FAILED,
                     'updated_at' => now(),
                 ]);
 
@@ -72,7 +72,7 @@ class ProcessReversalTransaction implements ShouldQueue
 
             if ($alreadyHasEntries) {
                 LedgerTransaction::query()->where('id', '=', $reversal->id)->update([
-                    'status' => 'posted',
+                    'status' => LedgerTransaction::STATUS_POSTED,
                     'updated_at' => now(),
                 ]);
 
@@ -80,14 +80,14 @@ class ProcessReversalTransaction implements ShouldQueue
             }
 
             $alreadyReversed = LedgerTransaction::query()
-                ->where('type', '=', 'reversal')
+                ->where('type', '=', LedgerTransaction::TYPE_REVERSAL)
                 ->where('reversal_of_id', '=', $original->id)
                 ->where('id', '!=', $reversal->id)
                 ->exists();
 
             if ($alreadyReversed) {
                 LedgerTransaction::query()->where('id', '=', $reversal->id)->update([
-                    'status' => 'failed',
+                    'status' => LedgerTransaction::STATUS_FAILED,
                     'meta' => ['reason' => 'already_reversed'],
                     'updated_at' => now(),
                 ]);
@@ -106,8 +106,8 @@ class ProcessReversalTransaction implements ShouldQueue
 
             if ($userAccountId) {
                 $hasPendingTransfer = LedgerTransaction::query()
-                    ->where('type', '=', 'transfer')
-                    ->where('status', '=', 'pending')
+                    ->where('type', '=', LedgerTransaction::TYPE_TRANSFER)
+                    ->where('status', '=', LedgerTransaction::STATUS_PENDING)
                     ->where(function ($q) use ($userAccountId) {
                         $q->where('from_account_id', '=', $userAccountId)
                             ->orWhere('to_account_id', '=', $userAccountId);
@@ -116,7 +116,7 @@ class ProcessReversalTransaction implements ShouldQueue
 
                 if ($hasPendingTransfer) {
                     LedgerTransaction::query()->where('id', '=', $reversal->id)->update([
-                        'status' => 'failed',
+                        'status' => LedgerTransaction::STATUS_FAILED,
                         'meta' => ['reason' => 'pending_transfer'],
                         'updated_at' => now(),
                     ]);
@@ -139,7 +139,7 @@ class ProcessReversalTransaction implements ShouldQueue
 
                 if ($balanceAfter < 0) {
                     LedgerTransaction::query()->where('id', '=', $reversal->id)->update([
-                        'status' => 'failed',
+                        'status' => LedgerTransaction::STATUS_FAILED,
                         'meta' => ['reason' => 'insufficient_balance_to_reverse', 'balance_cents' => $currentBalance],
                         'updated_at' => now(),
                     ]);
@@ -154,7 +154,7 @@ class ProcessReversalTransaction implements ShouldQueue
 
             if ($entries->count() === 0) {
                 LedgerTransaction::query()->where('id', '=', $reversal->id)->update([
-                    'status' => 'failed',
+                    'status' => LedgerTransaction::STATUS_FAILED,
                     'meta' => ['reason' => 'no_entries'],
                     'updated_at' => now(),
                 ]);
@@ -179,14 +179,15 @@ class ProcessReversalTransaction implements ShouldQueue
             LedgerEntry::query()->insert($insert);
 
             LedgerTransaction::query()->where('id', '=', $reversal->id)->update([
-                'status' => 'posted',
+                'status' => LedgerTransaction::STATUS_POSTED,
                 'updated_at' => now(),
             ]);
 
             LedgerTransaction::query()->where('id', '=', $original->id)->update([
-                'status' => 'reversed',
+                'status' => LedgerTransaction::STATUS_REVERSED,
                 'updated_at' => now(),
             ]);
         }, 3);
     }
 }
+

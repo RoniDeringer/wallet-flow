@@ -26,7 +26,7 @@ class ReversalsController extends Controller
         $accountId = Account::query()
             ->where('type', '=', 'user')
             ->where('user_id', '=', $user->id)
-            ->where('currency', '=', 'BRL')
+            ->where('currency', '=', LedgerTransaction::CURRENCY_BRL)
             ->value('id');
 
         if (! $accountId) {
@@ -44,13 +44,13 @@ class ReversalsController extends Controller
             ]);
         }
 
-        if ($tx->type === 'reversal') {
+        if ($tx->type === LedgerTransaction::TYPE_REVERSAL) {
             throw ValidationException::withMessages([
                 'transactionId' => ['Esta transação já é uma reversão.'],
             ]);
         }
 
-        if ($tx->status !== 'posted') {
+        if ($tx->status !== LedgerTransaction::STATUS_POSTED) {
             throw ValidationException::withMessages([
                 'transactionId' => ['A transação precisa estar POSTED para ser revertida.'],
             ]);
@@ -63,7 +63,7 @@ class ReversalsController extends Controller
         }
 
         $alreadyReversed = LedgerTransaction::query()
-            ->where('type', '=', 'reversal')
+            ->where('type', '=', LedgerTransaction::TYPE_REVERSAL)
             ->where('reversal_of_id', '=', $tx->id)
             ->exists();
 
@@ -74,8 +74,8 @@ class ReversalsController extends Controller
         }
 
         $hasPendingTransfer = LedgerTransaction::query()
-            ->where('type', '=', 'transfer')
-            ->where('status', '=', 'pending')
+            ->where('type', '=', LedgerTransaction::TYPE_TRANSFER)
+            ->where('status', '=', LedgerTransaction::STATUS_PENDING)
             ->where(function ($q) use ($accountId) {
                 $q->where('from_account_id', '=', $accountId)
                     ->orWhere('to_account_id', '=', $accountId);
@@ -110,15 +110,15 @@ class ReversalsController extends Controller
         $reversalTx = DB::transaction(function () use ($user, $tx) {
             return LedgerTransaction::query()->create([
                 'uuid' => (string) Str::uuid(),
-                'type' => 'reversal',
-                'status' => 'pending',
+                'type' => LedgerTransaction::TYPE_REVERSAL,
+                'status' => LedgerTransaction::STATUS_PENDING,
                 'amount' => $tx->amount,
                 'currency' => $tx->currency,
                 'requested_by_user_id' => $user->id,
                 'from_account_id' => $tx->to_account_id,
                 'to_account_id' => $tx->from_account_id,
                 'reversal_of_id' => $tx->id,
-                'description' => 'Reversão',
+                'description' => LedgerTransaction::DESCRIPTION_REVERSAL,
                 'meta' => ['reversal_of_uuid' => $tx->uuid],
             ]);
         });
@@ -133,3 +133,4 @@ class ReversalsController extends Controller
         ]);
     }
 }
+

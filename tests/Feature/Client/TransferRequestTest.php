@@ -3,6 +3,7 @@
 namespace Tests\Feature\Client;
 
 use App\Jobs\ProcessTransferTransaction;
+use App\Models\LedgerTransaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -37,10 +38,10 @@ class TransferRequestTest extends TestCase
         // Seed balance for sender: +R$ 50.00
         $seedTxId = DB::table('ledger_transactions')->insertGetId([
             'uuid' => (string) \Illuminate\Support\Str::uuid(),
-            'type' => 'deposit',
-            'status' => 'posted',
+            'type' => LedgerTransaction::TYPE_DEPOSIT,
+            'status' => LedgerTransaction::STATUS_POSTED,
             'amount' => 5000,
-            'currency' => 'BRL',
+            'currency' => LedgerTransaction::CURRENCY_BRL,
             'requested_by_user_id' => $sender->id,
             'from_account_id' => $platformAccountId,
             'to_account_id' => $senderAccountId,
@@ -55,7 +56,7 @@ class TransferRequestTest extends TestCase
                 'ledger_transaction_id' => $seedTxId,
                 'account_id' => $senderAccountId,
                 'amount' => 5000,
-                'currency' => 'BRL',
+                'currency' => LedgerTransaction::CURRENCY_BRL,
                 'balance_after' => null,
                 'description' => 'Seed',
                 'created_at' => now(),
@@ -65,7 +66,7 @@ class TransferRequestTest extends TestCase
                 'ledger_transaction_id' => $seedTxId,
                 'account_id' => $platformAccountId,
                 'amount' => -5000,
-                'currency' => 'BRL',
+                'currency' => LedgerTransaction::CURRENCY_BRL,
                 'balance_after' => null,
                 'description' => 'Seed',
                 'created_at' => now(),
@@ -155,4 +156,6 @@ class TransferRequestTest extends TestCase
             ->value('id');
     }
 }
+
+
 

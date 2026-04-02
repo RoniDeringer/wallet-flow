@@ -18,6 +18,10 @@ Aplicação de carteira financeira com **depósitos**, **transferências** e **r
   <img alt="Docker" src="https://img.shields.io/badge/Docker-29.3.0-2496ED?logo=docker&logoColor=white" />
 </p>
 
+## ▶️ Apresentação no youtube
+
+Vídeo de apresentação do projeto no youtube: [Projeto wallet-flow](https://youtu.be/hdt8BhJQNB4)
+
 ## 🧰 Tecnologias / Ferramentas
 
 - **Backend**: Laravel 12.56.0 (PHP 8.2.12)

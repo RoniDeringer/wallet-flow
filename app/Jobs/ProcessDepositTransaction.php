@@ -33,11 +33,11 @@ class ProcessDepositTransaction implements ShouldQueue
                 return;
             }
 
-            if ($tx->type !== 'deposit') {
+            if ($tx->type !== LedgerTransaction::TYPE_DEPOSIT) {
                 return;
             }
 
-            if ($tx->status === 'posted') {
+            if ($tx->status === LedgerTransaction::STATUS_POSTED) {
                 return;
             }
 
@@ -47,7 +47,7 @@ class ProcessDepositTransaction implements ShouldQueue
 
             if ($alreadyHasEntries) {
                 LedgerTransaction::query()->where('id', '=', $tx->id)->update([
-                    'status' => 'posted',
+                    'status' => LedgerTransaction::STATUS_POSTED,
                     'updated_at' => now(),
                 ]);
 
@@ -56,7 +56,7 @@ class ProcessDepositTransaction implements ShouldQueue
 
             if (! $tx->from_account_id || ! $tx->to_account_id) {
                 LedgerTransaction::query()->where('id', '=', $tx->id)->update([
-                    'status' => 'failed',
+                    'status' => LedgerTransaction::STATUS_FAILED,
                     'updated_at' => now(),
                 ]);
 
@@ -87,9 +87,10 @@ class ProcessDepositTransaction implements ShouldQueue
             ]);
 
             LedgerTransaction::query()->where('id', '=', $tx->id)->update([
-                'status' => 'posted',
+                'status' => LedgerTransaction::STATUS_POSTED,
                 'updated_at' => now(),
             ]);
         }, 3);
     }
 }
+

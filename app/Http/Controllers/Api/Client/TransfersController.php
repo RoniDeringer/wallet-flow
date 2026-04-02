@@ -56,14 +56,14 @@ class TransfersController extends Controller
         $senderAccountId = Account::query()
             ->where('type', '=', 'user')
             ->where('user_id', '=', $sender->id)
-            ->where('currency', '=', 'BRL')
+            ->where('currency', '=', LedgerTransaction::CURRENCY_BRL)
             ->value('id');
 
         $senderBalance = 0;
         if ($senderAccountId) {
             $senderBalance = (int) LedgerEntry::query()
                 ->where('account_id', '=', $senderAccountId)
-                ->where('currency', '=', 'BRL')
+                ->where('currency', '=', LedgerTransaction::CURRENCY_BRL)
                 ->sum('amount');
         }
 
@@ -89,26 +89,26 @@ class TransfersController extends Controller
 
         $tx = DB::transaction(function () use ($sender, $recipient, $amountCents, $idempotencyKey) {
             $senderAccount = Account::query()->updateOrCreate(
-                ['type' => 'user', 'user_id' => $sender->id, 'currency' => 'BRL'],
-                ['name' => $sender->name.' (BRL)', 'key' => null]
+                ['type' => 'user', 'user_id' => $sender->id, 'currency' => LedgerTransaction::CURRENCY_BRL],
+                ['name' => $sender->name.' ('.LedgerTransaction::CURRENCY_BRL.')', 'key' => null]
             );
 
             $recipientAccount = Account::query()->updateOrCreate(
-                ['type' => 'user', 'user_id' => $recipient->id, 'currency' => 'BRL'],
-                ['name' => $recipient->name.' (BRL)', 'key' => null]
+                ['type' => 'user', 'user_id' => $recipient->id, 'currency' => LedgerTransaction::CURRENCY_BRL],
+                ['name' => $recipient->name.' ('.LedgerTransaction::CURRENCY_BRL.')', 'key' => null]
             );
 
             return LedgerTransaction::query()->create([
                 'uuid' => (string) Str::uuid(),
-                'type' => 'transfer',
-                'status' => 'pending',
+                'type' => LedgerTransaction::TYPE_TRANSFER,
+                'status' => LedgerTransaction::STATUS_PENDING,
                 'amount' => $amountCents,
-                'currency' => 'BRL',
+                'currency' => LedgerTransaction::CURRENCY_BRL,
                 'requested_by_user_id' => $sender->id,
                 'from_account_id' => $senderAccount->id,
                 'to_account_id' => $recipientAccount->id,
                 'idempotency_key' => $idempotencyKey,
-                'description' => 'Transferência',
+                'description' => LedgerTransaction::DESCRIPTION_TRANSFER,
                 'meta' => ['recipient_user_id' => $recipient->id],
             ]);
         });
@@ -123,3 +123,4 @@ class TransfersController extends Controller
         ]);
     }
 }
+
