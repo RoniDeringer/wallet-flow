@@ -95,7 +95,7 @@ class TransferRequestTest extends TestCase
         $this->assertSame('pending', $tx->status);
         $this->assertSame(1000, (int) $tx->amount);
 
-        Queue::assertPushed(ProcessTransferTransaction::class, fn ($job) => $job->ledgerTransactionId === (int) $txId);
+        Queue::assertPushed(ProcessTransferTransaction::class, fn($job) => $job->ledgerTransactionId === (int) $txId);
     }
 
     public function test_transfer_requires_sufficient_balance(): void
@@ -156,6 +156,3 @@ class TransferRequestTest extends TestCase
             ->value('id');
     }
 }
-
-
-
