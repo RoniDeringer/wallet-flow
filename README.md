@@ -1,4 +1,4 @@
-# Wallet Flow — Desafio (carteira financeira)
+# Wallet Flow — carteira financeira
 
 Aplicação de carteira financeira com **depósitos**, **transferências** e **rollback (reversal)**, usando **Ledger (double-entry)**, **RabbitMQ** (fila) e **Laravel Sanctum** (auth).
 
