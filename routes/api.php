@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\Client\ReversalsController;
 use App\Http\Controllers\Api\Client\TransfersController;
 use App\Http\Controllers\Api\Client\TransactionsController;
 use App\Http\Controllers\Api\Client\WalletController;
+use App\Http\Controllers\Api\Comments\CommentsController;
 use App\Http\Controllers\Api\Orders\OrdersController;
 use Illuminate\Support\Facades\Route;
 
@@ -35,4 +36,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/orders', [OrdersController::class, 'store']);
     Route::get('/orders', [OrdersController::class, 'index']);
     Route::post('/orders/deliver/{orderId}', [OrdersController::class, 'deliver']);
+
+    Route::get('/comments', [CommentsController::class, 'index']);
+    Route::post('/comments', [CommentsController::class, 'store']);
 });

@@ -46,6 +46,7 @@ import ClientDepositsPage from './pages/client/ClientDepositsPage.vue'
 import ClientTransactionsPage from './pages/client/ClientTransactionsPage.vue'
 import ClientWalletPage from './pages/client/ClientWalletPage.vue'
 import OrdersList from './pages/orders/OrdersList.vue'
+import Comment from './pages/comments/Comment.vue'
 
 function loadSession() {
     try {
@@ -113,6 +114,7 @@ const menuItems = computed(() => {
         { key: 'transactions', label: 'Transações' },
         { key: 'deposits', label: 'Depósitos' },
         { key: 'orders', label: 'Pedidos' },
+        { key: 'mural', label: 'Mural' },
     ]
 })
 
@@ -128,6 +130,7 @@ const activeComponent = computed(() => {
     if (activeKey.value === 'transactions') return ClientTransactionsPage
     if (activeKey.value === 'deposits') return ClientDepositsPage
     if (activeKey.value === 'orders') return OrdersList
+    if (activeKey.value === 'mural') return Comment
     return ClientWalletPage
 })
 </script>
