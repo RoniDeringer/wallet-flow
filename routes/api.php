@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\Client\ReversalsController;
 use App\Http\Controllers\Api\Client\TransfersController;
 use App\Http\Controllers\Api\Client\TransactionsController;
 use App\Http\Controllers\Api\Client\WalletController;
+use App\Http\Controllers\Api\Orders\OrdersController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
@@ -29,4 +30,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me/transactions', [TransactionsController::class, 'index']);
     Route::post('/me/transfers', [TransfersController::class, 'store']);
     Route::post('/me/transactions/{transactionId}/reversal', [ReversalsController::class, 'store']);
+
+
+    Route::post('/orders', [OrdersController::class, 'store']);
+    Route::get('/orders', [OrdersController::class, 'index']);
+    Route::post('/orders/deliver/{orderId}', [OrdersController::class, 'deliver']);
 });
